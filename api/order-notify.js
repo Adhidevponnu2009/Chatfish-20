@@ -1,37 +1,38 @@
-// api/notify.js
-import twilio from 'twilio';
+import sendgrid from '@sendgrid/mail';
 
-const accountSid = process.env.TWILIO_SID;           // Twilio Account SID from Vercel env
-const authToken = process.env.TWILIO_AUTH_TOKEN;    // Twilio Auth Token from Vercel env
-const fromNumber = process.env.TWILIO_PHONE;        // Your Twilio phone number
-const toNumber = process.env.MY_PHONE_NUMBER;       // Your mobile number to receive SMS
-
-const client = twilio(accountSid, authToken);
+sendgrid.setApiKey(process.env.SENDGRID_API_KEY);
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
-    const { orderDetails } = req.body;
-
-    if (!orderDetails) {
-      return res.status(400).json({ error: "Order details are missing" });
-    }
+    const { order } = req.body;
 
     try {
-      // Send SMS
-      await client.messages.create({
-        body: `📦 New order received!\nCustomer: ${orderDetails.customer.name}\nPhone: ${orderDetails.customer.phone}\nAddress: ${orderDetails.customer.location}\nTotal: ₹${orderDetails.total}\nItems: ${orderDetails.items.map(i => `${i.name} x${i.qty}`).join(', ')}`,
-        from: fromNumber,
-        to: toNumber
+      await sendgrid.send({
+        to: process.env.TO_EMAIL,          // Your email
+        from: process.env.FROM_EMAIL,      // Verified sender
+        subject: `New Order: ${order.id}`,
+        text: `New order received!\n
+Customer: ${order.customer.name}\n
+Phone: ${order.customer.phone}\n
+Address: ${order.customer.location}\n
+Total: ₹${order.total}\n
+Items: ${order.items.map(i => `${i.name} x${i.qty} = ₹${i.price*i.qty}`).join('\n')}`,
+        html: `<h3>New order received!</h3>
+<p><strong>Customer:</strong> ${order.customer.name}</p>
+<p><strong>Phone:</strong> ${order.customer.phone}</p>
+<p><strong>Address:</strong> ${order.customer.location}</p>
+<p><strong>Total:</strong> ₹${order.total}</p>
+<p><strong>Items:</strong></p>
+<ul>${order.items.map(i => `<li>${i.name} x${i.qty} = ₹${i.price*i.qty}</li>`).join('')}</ul>`
       });
 
-      return res.status(200).json({ message: 'Notification sent via SMS!' });
+      return res.status(200).json({ message: 'Email notification sent!' });
     } catch (error) {
-      console.error("Twilio error:", error);
-      return res.status(500).json({ error: 'Failed to send notification' });
+      console.error(error);
+      return res.status(500).json({ error: 'Failed to send email' });
     }
 
   } else {
-    res.setHeader('Allow', 'POST');
     res.status(405).json({ error: 'Method not allowed' });
   }
 }
