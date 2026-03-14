@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> Cart</title>
+<title>Cart - ChatFish</title>
 <style>
 body {
   font-family: 'Arial', sans-serif;
@@ -124,7 +124,7 @@ input { width:100%; padding:10px; margin:8px 0; border-radius:8px; border:1px so
 </head>
 <body>
 
-<header>My Cart</header>
+<header>ChatFish Cart</header>
 
 <div class="cart-container" id="cartItems"></div>
 
@@ -143,6 +143,7 @@ input { width:100%; padding:10px; margin:8px 0; border-radius:8px; border:1px so
 <div id="notify"></div>
 
 <script>
+// Cart & Notification
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
 function showNotification(msg){
@@ -203,7 +204,8 @@ function renderCart(){
   saveCart();
 }
 
-document.getElementById("placeOrder").addEventListener("click", ()=>{
+// Place Order with SMS via serverless function
+document.getElementById("placeOrder").addEventListener("click", async ()=>{
   if(cart.length===0){ alert("Cart is empty"); return; }
   const name = document.getElementById("name").value.trim();
   const phone = document.getElementById("phone").value.trim();
@@ -216,19 +218,33 @@ document.getElementById("placeOrder").addEventListener("click", ()=>{
     customer: { name, phone, location: address },
     items: cart.map(i=>({name:i.name, price:i.price, qty:i.qty, image:i.image})),
     total,
-    status: "Processing",
-    cancelRequest: false,
-    cancelReason: ""
+    status: "Processing"
   };
 
+  // Save order in localStorage
   let orders = JSON.parse(localStorage.getItem("orders")) || [];
   orders.push(order);
   localStorage.setItem("orders", JSON.stringify(orders));
 
+  // Send SMS notification via Vercel serverless function
+  try {
+    const response = await fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderDetails: order })
+    });
+    const data = await response.json();
+    if(data.error){ throw new Error(data.error); }
+    showNotification("Order placed! SMS sent.");
+  } catch(err){
+    console.error(err);
+    showNotification("Order placed, but failed to send SMS.");
+  }
+
+  // Clear cart and inputs
   cart = [];
   saveCart();
   renderCart();
-  showNotification("Order placed successfully!");
   document.getElementById("name").value=""; 
   document.getElementById("phone").value=""; 
   document.getElementById("address").value="";
