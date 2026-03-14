@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Track Orders</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #eef2ff;
+  margin: 0;
+  padding: 20px;
+}
+h2 {
+  text-align: center;
+  color: #1e3a8a;
+  margin-bottom: 20px;
+}
+
+/* container */
+.container {
+  max-width: 900px;
+  margin: auto;
+}
+
+/* order card */
+.order-card {
+  background: white;
+  padding: 20px;
+  margin-bottom: 25px;
+  border-radius: 15px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+  display: flex;
+  justify-content: space-between;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.order-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+}
+
+/* left side: actions */
+.actions {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  margin-right: 20px;
+}
+.cancel-btn {
+  margin-bottom: 15px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+.cancel-btn:hover { background: #dc2626; }
+
+/* right side: timeline */
+.timeline {
+  flex: 2;
+  position: relative;
+  padding-left: 30px;
+}
+.step {
+  position: relative;
+  margin-bottom: 25px;
+  font-size: 14px;
+  padding-right: 10px;
+}
+.step::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 8px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ccc;
+  z-index: 2;
+  transition: background 0.3s, transform 0.3s;
+}
+.step.active::after {
+  background: #22c55e; /* green for active */
+}
+.step.cancelled::after {
+  background: #ef4444; /* red for cancelled */
+  animation: pulseRed 1s infinite;
+}
+.step::before {
+  content: "";
+  position: absolute;
+  right: 5px;
+  top: 20px;
+  width: 2px;
+  height: 100%;
+  background: #ccc;
+  z-index: 1;
+}
+.step:last-child::before { display: none; }
+
+/* pulse animation red */
+@keyframes pulseRed {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* product items */
+.product {
+  display: flex;
+  align-items: center;
+  margin-top: 12px;
+}
+.product img {
+  width: 60px;
+  height: 60px;
+  margin-right: 12px;
+  border-radius: 8px;
+}
+.product b { font-size: 15px; color: #0f172a; }
+.product p { margin: 2px 0; color: #e11d48; font-weight: bold; }
+
+/* popup */
+.popup {
+  position: fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background: rgba(0,0,0,0.4);
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+.popup-box {
+  background:white;
+  padding:20px;
+  border-radius:15px;
+  width:90%;
+  max-width:400px;
+}
+textarea {
+  width:100%;
+  padding:10px;
+  margin-top:12px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  resize:none;
+}
+.submit-btn {
+  margin-top:12px;
+  background:#2563eb;
+  color:white;
+  border:none;
+  padding:12px;
+  width:100%;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+/* responsive */
+@media(max-width:700px){
+  .order-card { flex-direction: column; }
+  .actions { margin-right: 0; margin-bottom: 15px; }
+  .timeline { padding-left: 0; }
+  .step { padding-right: 0; margin-bottom: 20px; }
+  .step::before { display: none; }
+}
+</style>
+</head>
+<body>
+
+<h2>Track Your Orders</h2>
+<div class="container" id="orders"></div>
+
+<div class="popup" id="cancelPopup">
+  <div class="popup-box">
+    <h3>Request Cancel</h3>
+    <textarea id="reason" placeholder="Enter cancel reason (note: once fish is taken by partner, cancellation will be rejected)"></textarea>
+    <button class="submit-btn" onclick="submitCancel()">Submit</button>
+  </div>
+</div>
+
+<script>
+let orders = JSON.parse(localStorage.getItem("orders")) || [];
+let container = document.getElementById("orders");
+let cancelIndex = null;
+
+function renderOrders(){
+  container.innerHTML = "";
+  if(orders.length === 0){
+    container.innerHTML = "<p>No orders found</p>";
+    return;
+  }
+
+  orders.forEach((order,index)=>{
+    let productsHTML="";
+    order.items.forEach(p=>{
+      productsHTML+=`
+        <div class="product">
+          <img src="${p.image || 'https://via.placeholder.com/60'}">
+          <div>
+            <b>${p.name}</b>
+            <p>₹${p.price}</p>
+          </div>
+        </div>
+      `;
+    });
+
+    // timeline steps
+    let steps = ["Processing","Shipped","Out for Delivery","Delivered"];
+    if(order.status.startsWith("Cancel")){
+      steps = ["Cancel Requested","Cancelled"];
+    }
+
+    let timelineHTML="";
+    steps.forEach(step=>{
+      let stepClass="";
+      if(order.status === "Cancelled") stepClass="cancelled"; // red pulse
+      else if(!step.includes("Cancel") && steps.indexOf(step) <= steps.indexOf(order.status)) stepClass="active";
+      else if(step === "Cancel Requested" && order.status==="Cancel Requested") stepClass="active";
+      timelineHTML+=`<div class="step ${stepClass}">${step}</div>`;
+    });
+
+    // Cancel button
+    let cancelBtn="";
+    if(order.status==="Processing"){
+      cancelBtn=`<button class="cancel-btn" onclick="openCancel(${index})">Request Cancel</button>`;
+    }
+
+    container.innerHTML+=`
+      <div class="order-card">
+        <div class="actions">${cancelBtn}</div>
+        <div class="timeline">
+          <h3>Order ID: ${order.id}</h3>
+          ${productsHTML}
+          <h4>Total: ₹${order.total}</h4>
+          ${timelineHTML}
+        </div>
+      </div>
+    `;
+  });
+}
+
+function openCancel(i){
+  cancelIndex=i;
+  document.getElementById("cancelPopup").style.display="flex";
+}
+
+function submitCancel(){
+  let reason=document.getElementById("reason").value;
+  if(reason.trim()===""){ alert("Enter cancel reason"); return; }
+
+  orders[cancelIndex].status="Cancel Requested";
+  orders[cancelIndex].cancelRequest=true;
+  orders[cancelIndex].cancelReason=reason;
+
+  localStorage.setItem("orders",JSON.stringify(orders));
+  document.getElementById("cancelPopup").style.display="none";
+  alert("Cancel request sent!");
+  renderOrders();
+}
+
+// Initial render
+renderOrders();
+</script>
+
+</body>
+</html>

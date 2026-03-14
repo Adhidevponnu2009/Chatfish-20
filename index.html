@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShopEasy</title>
+
+<style>
+/* RESET */
+* {margin:0; padding:0; box-sizing:border-box;}
+body {font-family:'Arial',sans-serif; background:#f3f4f6; color:#1e293b;}
+a {text-decoration:none;}
+
+/* HEADER */
+.header {
+  display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center;
+  background:linear-gradient(90deg,#0f172a,#2563eb); color:white; padding:15px 20px;
+  position:sticky; top:0; z-index:1000; box-shadow:0 4px 15px rgba(0,0,0,0.15);
+}
+.logo {font-size:24px; font-weight:bold; letter-spacing:1px;}
+#search {padding:8px 12px; border-radius:6px; border:none; width:250px; max-width:100%; margin:10px 0;}
+.nav a {
+  color:white; margin-left:15px; font-weight:bold; padding:8px 14px; border-radius:25px;
+  background:rgba(255,255,255,0.1); transition:all 0.3s ease; display:inline-block;
+}
+.nav a:hover {background:white; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,0.2);}
+.nav button {
+  background:#ef4444; color:white; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; margin-left:10px;
+  font-weight:bold; transition:all 0.3s ease;
+}
+.nav button:hover {background:#dc2626;}
+
+/* SECTION TITLE */
+.section-title {padding:20px; font-size:1.6em; font-weight:600; color:#1e293b;}
+
+/* PRODUCTS GRID */
+.products {display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:20px; padding:0 20px 20px 20px;}
+
+/* PRODUCT CARD */
+.product {
+  background:white; padding:15px; border-radius:12px; text-align:center; 
+  box-shadow:0 4px 15px rgba(0,0,0,0.08); transition:transform 0.3s ease,box-shadow 0.3s ease; position:relative;
+}
+.product:hover {transform:translateY(-5px); box-shadow:0 8px 20px rgba(0,0,0,0.15);}
+.product img {width:100%; height:160px; object-fit:cover; border-radius:8px; margin-bottom:10px; transition:transform 0.3s ease;}
+.product:hover img {transform:scale(1.05);}
+.product h4 {margin:8px 0; font-size:1.1em;}
+.price {color:#dc2626; font-weight:bold; margin-bottom:8px;}
+
+/* ADD TO CART BUTTON */
+button.add-cart {
+  position:relative; overflow:hidden; background:#2563eb; color:white; border:none;
+  padding:10px; border-radius:8px; cursor:pointer; width:100%; transition:all 0.3s ease;
+}
+button.add-cart:hover {background:#1d4ed8;}
+button.add-cart:focus {outline:none;}
+.ripple {
+  position:absolute; border-radius:50%; transform:scale(0);
+  animation:rippleAnim 0.6s linear;
+  background:rgba(255,255,255,0.7);
+  pointer-events:none;
+}
+@keyframes rippleAnim {to {transform:scale(4); opacity:0;}}
+
+/* NOTIFICATION */
+#notification {
+  position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
+  background:#2563eb; color:white; padding:12px 20px; border-radius:30px;
+  box-shadow:0 4px 15px rgba(0,0,0,0.2); opacity:0; pointer-events:none;
+  transition:opacity 0.4s ease, transform 0.4s ease;
+  font-weight:bold;
+}
+
+/* RESPONSIVE */
+@media(max-width:700px){
+  .products {grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:15px;}
+  #search {width:100%;}
+  .header {flex-direction:column; align-items:flex-start;}
+  .nav {margin-top:10px;}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">ShopEasy</div>
+  <input type="text" id="search" placeholder="Search products..." onkeyup="searchProducts()">
+  <div class="nav">
+    <a href="cart.html">🛒 Cart <span id="cartCount">0</span></a>
+    <a href="track.html">📦 Track Order</a>
+    <!-- Admin Button -->
+    <button onclick="window.location.href='admin-login.html'">Admin</button>
+  </div>
+</header>
+
+<h2 class="section-title">Products</h2>
+<div id="products" class="products"></div>
+
+<!-- Notification -->
+<div id="notification">Your item is added to cart. Thank you for choosing Chatfish</div>
+
+<script>
+// PRODUCTS & CART
+let products = JSON.parse(localStorage.getItem("products")) || [];
+let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+function renderProducts(){
+  const container = document.getElementById("products");
+  container.innerHTML = "";
+  products.forEach((p,i)=>{
+    container.innerHTML += `
+      <div class="product">
+        <img src="${p.image}" alt="${p.name}">
+        <h4>${p.name}</h4>
+        <p class="price">₹${p.price}</p>
+        <button class="add-cart" onclick="addToCart(${i}, event)">Add to Cart</button>
+      </div>
+    `;
+  });
+  document.getElementById("cartCount").innerText = cart.length;
+}
+
+// ADD TO CART WITH RIPPLE & NOTIFICATION
+function addToCart(index, e){
+  const btn = e.currentTarget;
+
+  // RIPPLE EFFECT
+  const circle = document.createElement("span");
+  circle.classList.add("ripple");
+  const rect = btn.getBoundingClientRect();
+  circle.style.width = circle.style.height = Math.max(rect.width,rect.height) + "px";
+  circle.style.left = e.clientX - rect.left - rect.width/2 + "px";
+  circle.style.top = e.clientY - rect.top - rect.height/2 + "px";
+  btn.appendChild(circle);
+  setTimeout(()=> circle.remove(),600);
+
+  // ADD PRODUCT TO CART
+  const product = products[index];
+  const existing = cart.findIndex(c=>c.name===product.name);
+  if(existing!==-1){
+    cart[existing].qty += 1;
+    cart[existing].total = cart[existing].price * cart[existing].qty;
+  } else {
+    cart.push({...product, qty:1, total:product.price});
+  }
+  localStorage.setItem("cart", JSON.stringify(cart));
+  document.getElementById("cartCount").innerText = cart.length;
+
+  // SHOW NOTIFICATION
+  const notify = document.getElementById("notification");
+  notify.style.opacity = "1";
+  notify.style.transform = "translateX(-50%) translateY(0)";
+  setTimeout(()=>{
+    notify.style.opacity = "0";
+    notify.style.transform = "translateX(-50%) translateY(20px)";
+  },2500);
+}
+
+// SEARCH
+function searchProducts(){
+  const s = document.getElementById("search").value.toLowerCase();
+  const filtered = products.filter(p=>p.name.toLowerCase().includes(s));
+  const container = document.getElementById("products");
+  container.innerHTML = "";
+  filtered.forEach((p,i)=>{
+    container.innerHTML += `
+      <div class="product">
+        <img src="${p.image}" alt="${p.name}">
+        <h4>${p.name}</h4>
+        <p class="price">₹${p.price}</p>
+        <button class="add-cart" onclick="addToCart(${i}, event)">Add to Cart</button>
+      </div>
+    `;
+  });
+}
+
+renderProducts();
+</script>
+
+</body>
+</html>

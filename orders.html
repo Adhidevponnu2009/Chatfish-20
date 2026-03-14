@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Orders - ChatFish</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #eef2ff;
+  margin:0;
+  padding:20px;
+}
+/* Header */
+.header{
+  background: linear-gradient(90deg,#1e3a8a,#2563eb);
+  color:white;
+  padding:20px;
+  border-radius:12px;
+  margin-bottom:20px;
+  box-shadow:0 4px 15px rgba(0,0,0,0.1);
+  text-align:center;
+  font-size:1.5em;
+}
+/* Orders grid */
+.orders-container {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+  gap:20px;
+}
+/* Order card */
+.order {
+  background:white;
+  border-radius:12px;
+  padding:20px;
+  box-shadow:0 5px 18px rgba(0,0,0,0.08);
+  transition:0.3s;
+}
+.order:hover { transform:translateY(-4px);}
+.order h3{margin-top:0;color:#0f172a;}
+.info{margin:6px 0;font-size:14px;}
+/* Status Badge */
+.status {
+  padding:5px 12px;
+  border-radius:20px;
+  font-size:13px;
+  font-weight:bold;
+  display:inline-block;
+}
+.processing{background:#fef3c7;color:#92400e;}
+.shipped{background:#dbeafe;color:#1e40af;}
+.delivery{background:#e0f2fe;color:#0369a1;}
+.delivered{background:#dcfce7;color:#166534;}
+.cancel-requested{background:#fde68a;color:#92400e;}
+.cancelled{background:#fee2e2;color:#991b1b;}
+/* Buttons */
+button{
+  width:100%;
+  margin-top:10px;
+  padding:10px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:bold;
+  transition:0.2s;
+}
+button.delete{background:#ef4444;color:white;}
+button.delete:hover{background:#dc2626;}
+button.approve{background:#22c55e;color:white;}
+button.approve:hover{background:#16a34a;}
+button.reject{background:#f97316;color:white;}
+button.reject:hover{background:#ea580c;}
+/* Dropdown */
+select{
+  width:100%;
+  padding:8px;
+  margin-top:10px;
+  border-radius:6px;
+  border:1px solid #ddd;
+}
+/* Cancel Request Section */
+.cancel-request{
+  background:#fff7ed;
+  border-left:4px solid #f97316;
+  padding:10px;
+  margin-top:10px;
+  border-radius:6px;
+  display:flex;
+  flex-direction: column;
+  gap:8px;
+  font-size:14px;
+}
+/* Product List */
+.product-list{
+  margin-top:12px;
+}
+.product-item{
+  display:flex;
+  align-items:center;
+  margin-top:10px;
+  background:#f9fafb;
+  padding:8px;
+  border-radius:8px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.05);
+}
+.product-item img{
+  width:60px;
+  height:60px;
+  object-fit:cover;
+  border-radius:6px;
+  margin-right:12px;
+}
+.product-item .product-info{
+  flex:1;
+}
+.product-item .product-info p{ margin:2px 0; font-size:14px; }
+/* Mobile */
+@media(max-width:600px){
+  .orders-container{ grid-template-columns:1fr; }
+  .product-item{ flex-direction: column; align-items:flex-start; }
+  .product-item img{ margin-bottom:6px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">Admin Orders</div>
+
+<div id="orders" class="orders-container"></div>
+
+<script>
+// Admin authentication check (optional)
+if(localStorage.getItem("admin") !== "true"){
+  window.location.href = "admin-login.html";
+}
+
+// Load orders from localStorage
+let orders = JSON.parse(localStorage.getItem("orders")) || [];
+const container = document.getElementById("orders");
+
+// Render orders
+function renderOrders(){
+  container.innerHTML = "";
+  if(orders.length === 0){
+    container.innerHTML = "<p>No orders found</p>";
+    return;
+  }
+
+  orders.forEach((o,i)=>{
+    let statusClass = "processing";
+    switch(o.status){
+      case "Shipped": statusClass="shipped"; break;
+      case "Out for Delivery": statusClass="delivery"; break;
+      case "Delivered": statusClass="delivered"; break;
+      case "Cancelled": statusClass="cancelled"; break;
+      case "Cancel Requested": statusClass="cancel-requested"; break;
+    }
+
+    // Product list
+    let productsHTML = "";
+    if(o.items && Array.isArray(o.items)){
+      o.items.forEach(p=>{
+        productsHTML += `
+        <div class="product-item">
+          <img src="${p.image || 'https://via.placeholder.com/60'}" alt="${p.name}">
+          <div class="product-info">
+            <p><b>${p.name}</b></p>
+            <p>Qty: ${p.quantity}</p>
+            <p>₹${p.price}</p>
+          </div>
+        </div>`;
+      });
+    }
+
+    // Cancel request section
+    let cancelSection = "";
+    if(o.cancelRequest && o.status === "Cancel Requested"){
+      cancelSection = `
+      <div class="cancel-request">
+        <b>Cancel Reason:</b> ${o.cancelReason}
+        <button class="approve" onclick="approveCancel(${i})">Approve</button>
+        <button class="reject" onclick="rejectCancel(${i})">Reject</button>
+      </div>`;
+    }
+
+    container.innerHTML += `
+    <div class="order">
+      <h3>Order ID: ${o.id}</h3>
+      <p class="info"><b>Name:</b> ${o.address?.name || "-"}</p>
+      <p class="info"><b>Phone:</b> ${o.address?.phone || "-"}</p>
+      <p class="info"><b>Address:</b> ${o.address?.address || "-"}</p>
+      <p class="info"><b>Total:</b> ₹${o.total}</p>
+      <p class="info"><b>Status:</b> <span class="status ${statusClass}">${o.status}</span></p>
+      <select onchange="updateStatus(${i},this.value)">
+        <option ${o.status=="Processing"?"selected":""}>Processing</option>
+        <option ${o.status=="Shipped"?"selected":""}>Shipped</option>
+        <option ${o.status=="Out for Delivery"?"selected":""}>Out for Delivery</option>
+        <option ${o.status=="Delivered"?"selected":""}>Delivered</option>
+      </select>
+      ${productsHTML}
+      ${cancelSection}
+      <button class="delete" onclick="deleteOrder(${i})">Delete Order</button>
+    </div>`;
+  });
+}
+
+// Update order status
+function updateStatus(i,status){
+  orders[i].status = status;
+  if(status !== "Processing") orders[i].cancelRequest = false;
+  localStorage.setItem("orders", JSON.stringify(orders));
+  renderOrders();
+}
+
+// Approve cancel
+function approveCancel(i){
+  orders[i].status = "Cancelled";
+  orders[i].cancelRequest = false;
+  localStorage.setItem("orders", JSON.stringify(orders));
+  alert("Cancel request approved!");
+  renderOrders();
+}
+
+// Reject cancel
+function rejectCancel(i){
+  orders[i].status = "Processing";
+  orders[i].cancelRequest = false;
+  localStorage.setItem("orders", JSON.stringify(orders));
+  alert("Cancel request rejected!");
+  renderOrders();
+}
+
+// Delete order
+function deleteOrder(i){
+  if(orders[i].status !== "Delivered" && orders[i].status !== "Cancelled"){
+    alert("Order must be Delivered or Cancelled before deleting");
+    return;
+  }
+  orders.splice(i,1);
+  localStorage.setItem("orders", JSON.stringify(orders));
+  renderOrders();
+}
+
+// Initial render
+renderOrders();
+</script>
+</body>
+</html>

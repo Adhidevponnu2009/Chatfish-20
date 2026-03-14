@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard - ChatFish</title>
+<style>
+  body {
+    margin: 0;
+    font-family: 'Arial', sans-serif;
+    background: #eef2ff;
+  }
+
+  header {
+    background: linear-gradient(90deg,#1e3a8a,#2563eb);
+    color: white;
+    text-align: center;
+    padding: 20px;
+    font-size: 1.8em;
+    font-weight: bold;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  }
+
+  .admin-container {
+    max-width: 1000px;
+    margin: 30px auto;
+    padding: 25px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    animation: fadeIn 0.8s ease;
+  }
+
+  h3 {
+    color: #1e293b;
+    margin-top: 25px;
+  }
+
+  p {
+    margin: 5px 0;
+    font-weight: bold;
+  }
+
+  /* Add Product section */
+  .add-product {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .add-product input[type="text"],
+  .add-product input[type="number"],
+  .add-product input[type="file"] {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 1em;
+  }
+
+  .add-product button, .stat-box, .view-orders-btn {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1em;
+    transition: 0.3s;
+    text-align: center;
+  }
+
+  .add-product button:hover, .stat-box:hover, .view-orders-btn:hover {
+    background: #1d4ed8;
+  }
+
+  button.delete {
+    background: #ef4444;
+    margin-left: auto;
+  }
+
+  button.delete:hover {
+    background: #dc2626;
+  }
+
+  .stats {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .stat-box {
+    flex: 1;
+    min-width: 150px;
+    text-align: center;
+  }
+
+  .view-orders-btn {
+    display: block;
+    margin: 10px 0 20px 0;
+    width: fit-content;
+  }
+
+  .product-list, .notifications {
+    margin-top: 15px;
+  }
+
+  .item-card, .notification-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f3f3f3;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 10px;
+    flex-wrap: wrap;
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+
+  .item-card:hover, .notification-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  }
+
+  .item-info, .notification-info {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .item-info img, .notification-info img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-right: 12px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  }
+
+  .notification-card {
+    background: #fff8dc;
+    border-left: 4px solid #f59e0b;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  @keyframes fadeIn {
+    0% {opacity: 0; transform: translateY(-20px);}
+    100% {opacity: 1; transform: translateY(0);}
+  }
+
+  @media(max-width:600px) {
+    .stats {
+      flex-direction: column;
+    }
+    .item-card, .notification-card {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .add-product {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .add-product input, .add-product button {
+      width: 100%;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>ChatFish Admin Dashboard</header>
+
+<div class="admin-container">
+
+  <div class="stats">
+    <div class="stat-box">Total Products: <span id="productCount">0</span></div>
+    <div class="stat-box">Total Orders: <span id="orderCount">0</span></div>
+  </div>
+
+  <button class="view-orders-btn" onclick="window.location.href='orders.html'">View Orders</button>
+
+  <h3>Add Product</h3>
+  <div class="add-product">
+    <input id="name" type="text" placeholder="Product Name">
+    <input id="price" type="number" placeholder="Price">
+    <input type="file" id="imageFile" accept="image/*">
+    <button onclick="addProduct()">Add Product</button>
+  </div>
+
+  <h3>Product List</h3>
+  <div id="productList" class="product-list"></div>
+
+  <h3>Cancel Requests</h3>
+  <div id="notifications" class="notifications"></div>
+
+</div>
+
+<script>
+if(localStorage.getItem("admin") != "true"){
+  window.location = "admin-login.html";
+}
+
+let products = JSON.parse(localStorage.getItem("products")) || [];
+let orders = JSON.parse(localStorage.getItem("orders")) || [];
+
+function loadAnalytics() {
+  document.getElementById("productCount").innerText = products.length;
+  document.getElementById("orderCount").innerText = orders.length;
+}
+
+function addProduct() {
+  let name = document.getElementById("name").value;
+  let price = document.getElementById("price").value;
+  let fileInput = document.getElementById("imageFile");
+  let file = fileInput.files[0];
+
+  if(!name || !price || !file) { alert("Fill all fields and select an image"); return; }
+
+  let reader = new FileReader();
+  reader.onload = function(e) {
+    let imageBase64 = e.target.result;
+    products.push({name, price, image: imageBase64});
+    localStorage.setItem("products", JSON.stringify(products));
+    loadProducts();
+    loadAnalytics();
+    document.getElementById("name").value="";
+    document.getElementById("price").value="";
+    fileInput.value="";
+  }
+  reader.readAsDataURL(file);
+}
+
+function loadProducts() {
+  let container = document.getElementById("productList");
+  container.innerHTML = "";
+  products.forEach((p,i) => {
+    container.innerHTML += `
+      <div class="item-card">
+        <div class="item-info">
+          <img src="${p.image}" alt="${p.name}">
+          ${p.name} - ₹${p.price}
+        </div>
+        <button class="delete" onclick="deleteProduct(${i})">Delete</button>
+      </div>
+    `;
+  });
+}
+
+function deleteProduct(i) {
+  products.splice(i,1);
+  localStorage.setItem("products", JSON.stringify(products));
+  loadProducts();
+  loadAnalytics();
+}
+
+function loadNotifications() {
+  let container = document.getElementById("notifications");
+  container.innerHTML = "";
+  let cancelOrders = orders.filter(o => o.cancelRequest === true);
+  if(cancelOrders.length === 0) {
+    container.innerHTML = "<p>No cancel requests</p>";
+  } else {
+    cancelOrders.forEach((o,i) => {
+      container.innerHTML += `
+        <div class="notification-card">
+          <div class="notification-info">
+            <b>Order ID:</b> ${o.id} <br>
+            <b>Reason:</b> ${o.cancelReason} <br>
+            <b>Time:</b> ${new Date(o.time).toLocaleString()}
+          </div>
+        </div>
+      `;
+    });
+  }
+}
+
+// Initial load
+loadProducts();
+loadAnalytics();
+loadNotifications();
+</script>
+
+</body>
+   <!--Tab to edit-->
+</html>

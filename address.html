@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Delivery Address</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#f2f2f2;
+padding:20px;
+}
+
+.container{
+max-width:500px;
+margin:auto;
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 3px 10px rgba(0,0,0,0.1);
+}
+
+input,textarea{
+width:100%;
+padding:10px;
+margin-top:10px;
+border:1px solid #ccc;
+border-radius:5px;
+}
+
+button{
+margin-top:15px;
+padding:10px;
+width:100%;
+background:#ffa41c;
+border:none;
+border-radius:6px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.location{
+background:#3498db;
+color:white;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Delivery Address</h2>
+
+<input id="name" placeholder="Full Name">
+
+<input id="phone" placeholder="Mobile Number">
+
+<textarea id="address" placeholder="Full Address"></textarea>
+
+<input id="location" placeholder="Location (GPS)" readonly>
+
+<button class="location" onclick="getLocation()">
+Use Current Location
+</button>
+
+<button onclick="saveAddress()">
+Save Address
+</button>
+
+</div>
+
+<script>
+
+function getLocation(){
+
+if(navigator.geolocation){
+
+navigator.geolocation.getCurrentPosition(function(pos){
+
+let lat = pos.coords.latitude
+let lon = pos.coords.longitude
+
+document.getElementById("location").value =
+lat + ", " + lon
+
+})
+
+}else{
+
+alert("Location not supported")
+
+}
+
+}
+
+function saveAddress(){
+
+let address = {
+
+name:document.getElementById("name").value,
+phone:document.getElementById("phone").value,
+address:document.getElementById("address").value,
+location:document.getElementById("location").value
+
+}
+
+localStorage.setItem("deliveryAddress",JSON.stringify(address))
+
+alert("Address saved!")
+
+}
+
+</script>
+
+</body>
+
+</html>

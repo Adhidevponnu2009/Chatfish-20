@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title> Cart</title>
+<style>
+body {
+  font-family: 'Arial', sans-serif;
+  margin:0;
+  background:#f3f4f6;
+  color:#1e293b;
+}
+header {
+  background: linear-gradient(90deg,#0f172a,#2563eb);
+  color:white;
+  padding:18px;
+  text-align:center;
+  font-size:1.5em;
+  position:sticky;
+  top:0;
+  z-index:1000;
+  box-shadow:0 4px 15px rgba(0,0,0,0.2);
+}
+.cart-container {
+  max-width:900px;
+  margin:20px auto;
+  padding:15px;
+}
+.cart-item {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  background:white;
+  padding:15px;
+  border-radius:12px;
+  margin-bottom:15px;
+  box-shadow:0 5px 18px rgba(0,0,0,0.08);
+  transition:transform 0.3s, box-shadow 0.3s;
+}
+.cart-item:hover { transform:translateY(-5px); box-shadow:0 8px 25px rgba(0,0,0,0.15);}
+.cart-item img {
+  width:100px; height:100px; object-fit:cover; border-radius:10px; margin-right:15px; transition:transform 0.3s;
+}
+.cart-item:hover img { transform:scale(1.05); }
+.cart-info { flex:1; min-width:200px; }
+.cart-info h4 { margin-bottom:5px; font-size:1.2em; }
+.cart-info p { margin-bottom:8px; font-weight:bold; }
+.cart-controls {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.cart-controls button {
+  padding:8px 14px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  font-weight:bold;
+  transition:all 0.3s;
+}
+.cart-controls button:hover { transform:scale(1.1); }
+.cart-controls .decrease { background:#ef4444;color:white; }
+.cart-controls .increase { background:#22c55e;color:white; }
+.cart-controls .remove { background:#2563eb;color:white; }
+.total-container {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:20px auto;
+  max-width:900px;
+  background:#fff;
+  padding:15px 20px;
+  border-radius:12px;
+  box-shadow:0 5px 18px rgba(0,0,0,0.08);
+  font-size:1.4em;
+  font-weight:bold;
+}
+.total-amount { font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:#1e3a8a; }
+#placeOrder {
+  background:#2563eb;
+  color:white;
+  padding:10px 20px;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+  font-weight:bold;
+  font-size:1em;
+  animation:pulse 2s infinite;
+}
+#placeOrder:hover { background:#1d4ed8; }
+@keyframes pulse {
+  0% {transform:scale(1);}
+  50% {transform:scale(1.05);}
+  100% {transform:scale(1);}
+}
+.empty-cart { text-align:center; font-size:1.2em; padding:40px; color:#6b7280; animation:fadeIn 1s ease; }
+input { width:100%; padding:10px; margin:8px 0; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; }
+
+/* Notification */
+#notify {
+  position:fixed;
+  bottom:20px; left:50%;
+  transform:translateX(-50%);
+  background:#2563eb; color:white;
+  padding:12px 20px;
+  border-radius:20px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.5s, transform 0.5s;
+  z-index:9999;
+}
+#notify.show { opacity:1; transform:translateX(-50%) translateY(-10px); }
+
+@media(max-width:600px){
+  .cart-item { flex-direction:column; align-items:flex-start; }
+  .cart-item img {margin-bottom:10px;}
+  .cart-controls {justify-content:flex-start;}
+  .total-container { flex-direction:column; gap:12px; text-align:center;}
+}
+@keyframes fadeIn { 0% {opacity:0; transform:translateY(10px);} 100% {opacity:1; transform:translateY(0);} }
+</style>
+</head>
+<body>
+
+<header>My Cart</header>
+
+<div class="cart-container" id="cartItems"></div>
+
+<div class="total-container">
+  <div class="total-amount" id="cartTotal">Total: ₹0</div>
+  <button id="placeOrder">Place Order</button>
+</div>
+
+<h3 style="max-width:900px;margin:20px auto;">Customer Details</h3>
+<div style="max-width:900px;margin:0 auto 20px auto;">
+  <input id="name" placeholder="Your Name">
+  <input id="phone" placeholder="Mobile Number">
+  <input id="address" placeholder="Location/Address">
+</div>
+
+<div id="notify"></div>
+
+<script>
+let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+function showNotification(msg){
+  const notif = document.getElementById("notify");
+  notif.innerText = msg;
+  notif.classList.add("show");
+  setTimeout(()=>{ notif.classList.remove("show"); },1500);
+}
+
+function saveCart(){ localStorage.setItem("cart", JSON.stringify(cart)); }
+
+function renderCart(){
+  const container = document.getElementById("cartItems");
+  const totalContainer = document.getElementById("cartTotal");
+  container.innerHTML = "";
+  let totalAmount = 0;
+
+  if(cart.length===0){
+    container.innerHTML = `<div class="empty-cart">Your cart is empty</div>`;
+    totalContainer.innerText = "Total: ₹0";
+    return;
+  }
+
+  cart.forEach((item,i)=>{
+    let itemTotal = item.price * item.qty;
+    totalAmount += itemTotal;
+
+    const div = document.createElement("div");
+    div.className = "cart-item";
+    div.innerHTML = `
+      <img src="${item.image}" alt="${item.name}">
+      <div class="cart-info">
+        <h4>${item.name}</h4>
+        <p>₹${item.price} × ${item.qty} = ₹${itemTotal}</p>
+        <div class="cart-controls">
+          <button class="decrease">-</button>
+          <span class="qty">${item.qty}</span>
+          <button class="increase">+</button>
+          <button class="remove">Remove</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+
+    div.querySelector(".increase").addEventListener("click", ()=>{
+      item.qty++;
+      saveCart(); renderCart(); showNotification(`${item.name} quantity increased`);
+    });
+    div.querySelector(".decrease").addEventListener("click", ()=>{
+      if(item.qty>1){ item.qty--; saveCart(); renderCart(); showNotification(`${item.name} quantity decreased`); }
+    });
+    div.querySelector(".remove").addEventListener("click", ()=>{
+      cart.splice(i,1); saveCart(); renderCart(); showNotification(`${item.name} removed from cart`);
+    });
+  });
+
+  totalContainer.innerText = `Total: ₹${totalAmount}`;
+  saveCart();
+}
+
+document.getElementById("placeOrder").addEventListener("click", ()=>{
+  if(cart.length===0){ alert("Cart is empty"); return; }
+  const name = document.getElementById("name").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  const address = document.getElementById("address").value.trim();
+  if(!name || !phone || !address){ alert("Please fill all customer details"); return; }
+
+  const total = cart.reduce((sum,item)=>sum + item.price*item.qty,0);
+  const order = {
+    id: Date.now().toString(),
+    customer: { name, phone, location: address },
+    items: cart.map(i=>({name:i.name, price:i.price, qty:i.qty, image:i.image})),
+    total,
+    status: "Processing",
+    cancelRequest: false,
+    cancelReason: ""
+  };
+
+  let orders = JSON.parse(localStorage.getItem("orders")) || [];
+  orders.push(order);
+  localStorage.setItem("orders", JSON.stringify(orders));
+
+  cart = [];
+  saveCart();
+  renderCart();
+  showNotification("Order placed successfully!");
+  document.getElementById("name").value=""; 
+  document.getElementById("phone").value=""; 
+  document.getElementById("address").value="";
+});
+
+renderCart();
+</script>
+</body>
+</html>
